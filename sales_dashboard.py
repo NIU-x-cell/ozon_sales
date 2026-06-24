@@ -113,7 +113,7 @@ c1.metric("总工单", total, delta=f"{delta_total}%" if delta_total is not None
 c2.metric("未完成", unfinish, delta=f"{delta_unfinish}%" if delta_unfinish is not None else "无上周数据")
 c3.metric("移交管理", transfer, delta=f"{delta_trans}%" if delta_trans is not None else "无上周数据")
 c4.metric("超时工单", overtime, delta=f"{delta_over}%" if delta_over is not None else "无上周数据")
-c5.metric("无效SKU", invalid)
+c5.metric("空SKU无效工单", invalid)
 c6.metric("平均时效(h)", avg_h)
 
 # ==== 新增：超时工单明细查看+导出 ====
