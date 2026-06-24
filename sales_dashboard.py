@@ -95,7 +95,7 @@ unfinish = len(df_filter[df_filter["deal_status"]=="未完成"])
 transfer = df_filter["is_transfer"].sum()
 overtime = df_filter["is_overtime"].sum()
 invalid = df_filter["invalid_sku"].sum()
-avg_h = round(df_filter["real_deal_hour"].mean(),1)
+avg_h = round(df_filter["deal_hour"].mean(),1)
 
 # 提取环比数字，去掉文字符号，仅保留百分比数字给delta
 def get_delta_num(curr, last):
