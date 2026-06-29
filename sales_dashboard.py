@@ -236,8 +236,8 @@ fig_mgr.update_traces(
 )
 ca.plotly_chart(fig_mgr, width="stretch", key="chart_mgr_bar")
 
-leader_top = df_filter["team_leader"].value_counts().head(10).reset_index()
-fig_leader = px.bar(leader_top, x="team_leader", y="count",title="组长TOP10")
+leader_top = df_filter["operator"].value_counts().head(10).reset_index()
+fig_leader = px.bar(leader_top, x="operator", y="count",title="运营TOP10")
 # 柱子顶部显示数字，字号16
 fig_leader.update_traces(
     texttemplate="%{y}",
@@ -254,29 +254,74 @@ st.success(f"""
 本期工单处理量最高负责人为{top_mgr_name}，工单量{top_mgr_cnt}条，一周内超过30条的负责人和组长都应注意。
 """)
 
-# 五。明细+导出（新增负责人筛选下拉条）
+# 五、工单明细查询导出
 st.subheader("五、工单明细查询导出")
 
-# 2. 先定义表格列（放到最前面！）
+# 定义表格展示列
 show_cols = [
     "create_time", "creator", "shop_id", "sku", "operator",
     "team_leader", "manager", "deal_status", "transfer_type",
- "real_deal_hour", "is_overtime", "is_transfer"
+    "real_deal_hour", "is_overtime", "is_transfer"
 ]
 
-# 1. 负责人多选下拉
-manager_count = df_filter["manager"].value_counts()
-all_managers = manager_count.index.tolist()
+# ========== 1. 负责人下拉预处理：带工单数量、降序 ==========
+manager_cnt_df = df_filter["manager"].value_counts().reset_index()
+manager_cnt_df.columns = ["manager", "cnt"]
+manager_options = ["全部"] + [f"{row['manager']}({row['cnt']})" for _, row in manager_cnt_df.iterrows()]
+manager_name_map = {f"{row['manager']}({row['cnt']})": row["manager"] for _, row in manager_cnt_df.iterrows()}
 
-selected_managers = st.multiselect(
-    label="按负责人筛选（支持多选）",
- options=all_managers,
-    default=all_managers,
-    key="detail_manager_multi_filter"
-)
+# ========== 2. 双列布局：负责人、运营筛选器并排 ==========
+col1, col2 = st.columns([1, 1])
 
-# 筛选语句（现在show_cols已经提前定义好了，不会报错）
-df_detail = df_filter[df_filter["manager"].isin(selected_managers)][show_cols].copy()
+with col1:
+    sel_manager_label = st.multiselect(
+        label="按负责人筛选（支持多选）",
+        options=manager_options,
+        default=["全部"],
+        key="detail_manager_multi_filter"
+    )
+
+# 解析选中负责人真实名称
+sel_manager_names = []
+if "全部" not in sel_manager_label:
+    sel_manager_names = [manager_name_map[label] for label in sel_manager_label]
+
+# ========== 3. 运营下拉：联动负责人，带工单数量 ==========
+# 根据负责人筛选运营数据源
+if "全部" in sel_manager_label:
+    op_base_df = df_filter
+else:
+    op_base_df = df_filter[df_filter["manager"].isin(sel_manager_names)]
+
+op_cnt_df = op_base_df["operator"].value_counts().reset_index()
+op_cnt_df.columns = ["operator", "cnt"]
+op_options = ["全部"] + [f"{row['operator']}({row['cnt']})" for _, row in op_cnt_df.iterrows()]
+op_name_map = {f"{row['operator']}({row['cnt']})": row["operator"] for _, row in op_cnt_df.iterrows()}
+
+with col2:
+    sel_op_label = st.multiselect(
+        label="按运营人员筛选（仅显示上方选中负责人下属运营）",
+        options=op_options,
+        default=["全部"],
+        key="detail_operator_multi_filter"
+    )
+
+# 解析选中运营名称
+sel_op_names = []
+if "全部" not in sel_op_label:
+    sel_op_names = [op_name_map[label] for label in sel_op_label]
+
+# ========== 4. 双重筛选明细数据 ==========
+df_detail = df_filter.copy()
+# 负责人过滤
+if "全部" not in sel_manager_label:
+    df_detail = df_detail[df_detail["manager"].isin(sel_manager_names)]
+# 运营过滤
+if "全部" not in sel_op_label:
+    df_detail = df_detail[df_detail["operator"].isin(sel_op_names)]
+
+# 只保留指定展示列
+df_detail = df_detail[show_cols].copy()
 
 # 渲染表格
 st.dataframe(df_detail, height=400, use_container_width=True)
@@ -295,6 +340,10 @@ st.success(f"""
 📋 明细数据小结
 当前筛选条件下有效明细数据共{len(df_detail)}条，支持按需导出归档、对账复盘。
 """)
+
+
+
+
 # 6 异常分析模块
 
 st.subheader("六、核心异常分析")
@@ -365,7 +414,7 @@ st.plotly_chart(fig_level, use_container_width=True)
 op_ratio = round(curr_op_level / total * 100,2) if total >0 else 0
 st.success(f"""
 🏷️ 工单层级小结
-本期一线运营工单{curr_op_level}条，占整体工单{op_ratio}%，团队基础问题处理体量稳定，工单难度结构正常波动。
+本期一线运营工单{curr_op_level}条，占整体工单{op_ratio}%。
 """)
 
 # 异常总结
